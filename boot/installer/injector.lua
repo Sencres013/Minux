@@ -69,7 +69,8 @@ until internet
 status("Internet card found", 0)
 
 if not internet.isHttpEnabled() then
-    status("HTTP is not enabled. Please enable it in the configuration file. Shutting down...", 1)
+    status("HTTP is not enabled. Please enable it in the configuration file", 1)
+    status("Shutting down...")
     sleep(5)
     computer.shutdown()
 end
@@ -101,7 +102,8 @@ until not chunk
 handle.close()
 
 if data == "" then
-    status("Failed reading chunk data. Rebooting...", 1)
+    status("Failed reading chunk data", 1)
+    status("Rebooting...")
     sleep(5)
     return computer.shutdown(true)
 end
@@ -110,7 +112,8 @@ status("Loading chunk")
 local result, err = load(data, "=installer", "t", _ENV)
 
 if not result then
-    status("Failed loading chunk: \"" .. err .. "\". Rebooting...", 1)
+    status("Failed loading chunk: \"" .. err .. "\"", 1)
+    status("Rebooting...")
     sleep(5)
     return computer.shutdown(true)
 else
