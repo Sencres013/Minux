@@ -219,7 +219,7 @@ appendSuperblock(0x2000, 4) -- number of blocks in each group
 appendSuperblock(0x2000, 4) -- number of fragments in each group
 appendSuperblock(totalInodes, 4) -- number of inodes in each group
 appendSuperblock(0x0, 4) -- last mount time
-appendSuperblock(os.time(), 4) -- last written time
+appendSuperblock(math.floor(os.time()), 4) -- last written time
 appendSuperblock(0x0, 2) -- number of times mounted since consistency check
 appendSuperblock(0xFFFF, 2) -- number of mounts allowed before consistency check
 appendSuperblock(0xEF53, 2) -- ext signature
