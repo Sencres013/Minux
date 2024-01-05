@@ -23,7 +23,7 @@ end
 
 local function fsToStr(fs)
     return fs.label .. " - " .. bytesToStr(fs.spaceTotal)
-end`
+end
 
 local function outputOption(fs, inverted, cursorY)
     if inverted then
