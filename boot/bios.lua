@@ -11,7 +11,9 @@ while not gpu.bind(component.list("screen")(), true) do
     computer.pullSignal(0)
 end
 
-local bootDrive = component.invoke(component.list("eeprom")(), "getData") or ""
+local eeprom = component.proxy(component.list("eeprom")())
+
+local bootDrive = eeprom.getData() or ""
 local bootByteInsig, bootByteSig = string.byte(component.invoke(bootDrive, "readSector", 1) or "", 511, 512)
 if bootByteSig == 0xAA and bootByteInsig == 0x55 then
     goto boot
@@ -45,10 +47,10 @@ if not bootDrive then
     end
 end
 
-component.invoke(component.list("eeprom")(), "setData", bootDrive)
+::boot::
+eeprom.setData(bootDrive)
 bootDrive = component.proxy(bootDrive)
 
-::boot::
 local result, err = load(bootDrive.readSector(1):sub(1, 200):match("(.+)\x00+"), "=MBR", "t")
 
 if result then
