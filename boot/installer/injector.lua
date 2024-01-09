@@ -105,7 +105,7 @@ if data == "" then
     status("Failed reading chunk data", 1)
     status("Rebooting...")
     sleep(5)
-    return computer.shutdown(true)
+    computer.shutdown(true)
 end
 
 status("Loading chunk")
@@ -115,7 +115,7 @@ if not result then
     status("Failed loading chunk: \"" .. err .. "\"", 1)
     status("Rebooting...")
     sleep(5)
-    return computer.shutdown(true)
+    computer.shutdown(true)
 else
     status("Loaded chunk", 0)
     return result()

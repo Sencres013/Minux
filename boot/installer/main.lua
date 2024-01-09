@@ -144,33 +144,10 @@ eeprom.setData(driveUUID);
 status("Set boot address to " .. driveUUID, 0)
 
 status("Initializing MBR")
-local MBR = ""
+local MBR = "local a=component;local b=a.proxy(a.list(\"drive\",true)());local c=b.readSector;load((c(2)..c(3)):match(\"(.+)\x00+\"),\"=MBRext\")"
+local MBRext = "local a,b,c,d=function(z)local y=0;for x=1,#z do y=y+z:sub(x,x):byte()<<(x-1)*8 end end,function(z)return 446+(z-1)*16;end,component,math.ceil;local e=c.proxy(c.list(\"eeprom\")(),\"getData\")local f=e.readSector;local g,h,i,j=f(1),\"\",2;for z=1,4 do if g:byte(b(z)+1)==64 and g:byte(b(z)+5)==131 then j=a(g:sub(b(z)+9,b(z)+12))break;end end local k=a(f(11+j):sub(169,172))local l,m,n,o,p,q,r=\"boot/BIOSd/efi/BIOSd.lua\",\"\"for s in l:gmatch(\"([^/]+)/?\")do n,o=f((k+1)*2-1),0;while 1 do q=n:sub(9+o,9+n:sub(7+o,7+o):byte()+o-1)p=a(n:sub(1+o,4+o))if h:sub(1,-2)==l then for z=1,12 do r=a(f(10+j+d(i/4)):sub((i-1)%4*128+41+(z-1)*4,(i-1)%4*128+40+z*4))if r==0 then break;end m=m..f((r+1)*2-1+j)..f((r+1)*2+j)end load(m:match(\"(.+)\\x00+\"),\"=BIOSd\")end if q==s then h=h..q..\"/\"k=a(f(10+d(p/4)):sub((p-1)%4*128+41,(p-1)%4*128+44))end o=o+a(n:sub(5+o,6+o))end i=p;end"
 
--- codepsace and signature will be empty for now
-for i = 1, 89 do
-    MBR = MBR .. "\x00\x00\x00\x00\x00"
-end
-MBR = MBR .. "\x00"
-
-local capacity = drive.getCapacity()
-
-MBR = MBR .. "\x80" .. "\x00\x00\x00" .. "\x83" -- active, CHS is irrelevant, partition type linux fs
-MBR = MBR .. "\x00\x00\x00" -- CHS is irrelevant
-MBR = MBR .. "\x00\x00\x00\x00" -- first absolute sector at LBA 0
-MBR = MBR .. "\x00" .. string.char(4 * (capacity / 524288 - 1) + 4) .. "\x00\x00" -- number of sectors (formula works only for oc disk sizes)
-
--- empty partitions
-for i = 1, 6 do
-    MBR = MBR .. "\x00\x00\x00\x00\x00\x00\x00\x00"
-end
-
-MBR = MBR .. "\x55\xAA" -- bootable flag
-status("Initialized MBR", 0)
-
-status("Initializing superblock")
-local superblock = ""
-
-local function bytesToByteStr(num, length)
+local function bytesToStr(num, length)
     local bytes, limit = {}, 0
 
     local numCopy = num
@@ -191,6 +168,31 @@ local function bytesToByteStr(num, length)
     return table.concat(bytes)
 end
 
+for i = 1, 446 - #MBR do
+    MBR = MBR .. "\x00"
+end
+
+local startSector = 2
+local capacity = drive.getCapacity() - startSector * 512
+
+MBR = MBR .. bytesToStr(0x80, 1) -- active
+MBR = MBR .. bytesToStr(0x0, 3) -- CHS is irrelevant
+MBR = MBR .. bytesToStr(0x83, 1) -- partition type linux fs
+MBR = MBR .. bytesToStr(0x0, 3) -- CHS is irrelevant
+MBR = MBR .. bytesToStr(startSector, 4) -- first absolute sector
+MBR = MBR .. bytesToStr(capacity / 512 - startSector) -- number of sectors
+
+-- empty partitions
+for i = 1, 6 do
+    MBR = MBR .. "\x00\x00\x00\x00\x00\x00\x00\x00"
+end
+
+MBR = MBR .. "\x55\xAA" -- bootable flag
+status("Initialized MBR", 0)
+
+status("Initializing superblock")
+local superblock = ""
+
 local function appendSuperblock(value, length)
     if type(value) == "string" then
         superblock = superblock .. value
@@ -199,12 +201,13 @@ local function appendSuperblock(value, length)
             superblock = superblock .. "\x00"
         end
     else
-        superblock = superblock .. bytesToByteStr(value, length)
+        superblock = superblock .. bytesToStr(value, length)
     end
 end
 
 local blockSize, fragmentSize, bytesPerInode = 1024, 1024, 2048 -- block fragmentation not implemented
-local totalInodes, reservedBlocks = capacity / bytesPerInode, math.floor(capacity / blockSize * 0.05)
+local totalInodes, reservedBlocks = math.floor(capacity / bytesPerInode), math.floor(capacity / blockSize * 0.05)
+totalInodes = totalInodes + totalInodes % 4
 
 -- main fields
 appendSuperblock(totalInodes, 4) -- total number of inodes in the system
@@ -271,7 +274,7 @@ status("Initializing group descriptor table")
 local GDT = ""
 
 local function appendGDT(value, length)
-    GDT = GDT .. bytesToByteStr(value, length)
+    GDT = GDT .. bytesToStr(value, length)
 end
 
 appendGDT(0x3, 4) -- block address of block usage map
@@ -301,11 +304,19 @@ while #blockBits > 0 do
     blockBits = blockBits:sub(1, math.max(#blockBits - 8, 0))
 end
 
-for i = 1, capacity / blockSize / 8 - math.ceil(blockBitsSize / 8) - 1 do
+for i = 1, math.ceil(capacity / blockSize / 8) - math.ceil(blockBitsSize / 8) - 1 do
     blockBitmap = blockBitmap .. "\x00"
 end
 
-blockBitmap = blockBitmap .. "\x80"
+if capacity / blockSize % 8 ~= 0 then
+    local finalUseByte = 0
+    for i = 0, 8 - capacity / blockSize % 8 do
+        finalUseByte = finalUseByte + (1 << 7 - i)
+    end
+    blockBitmap = blockBitmap .. bytesToStr(finalUseByte, 1)
+else
+    blockBitmap = blockBitmap .. "\x80"
+end
 
 for i = 1, 1024 - #blockBitmap do
     blockBitmap = blockBitmap .. "\xFF"
@@ -315,12 +326,16 @@ status("Initialized block bitmap", 0)
 status("Initializing inode bitmap")
 local inodeBitmap = "\xFF\x03" -- first 10 reserved inodes
 
-for i = 1, 31 do
-    inodeBitmap = inodeBitmap .. "\x00\x00"
+for i = 1, math.floor(totalInodes / 8) do
+    inodeBitmap = inodeBitmap .. "\x00"
 end
 
-for i = 1, 96 do
-    inodeBitmap = inodeBitmap .. "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+if totalInodes % 8 ~= 0 then
+    inodeBitmap = inodeBitmap .. "\xF0"
+end
+
+for i = 1, 1024 - math.ceil(totalInodes / 8) do
+    inodeBitmap = inodeBitmap .. "\xFF"
 end
 status("Initialized inode bitmap", 0)
 
@@ -344,7 +359,7 @@ local function createInode(data, type, perms, userId, groupId, index)
     local inode = ""
 
     local function appendInode(value, length)
-        inode = inode .. bytesToByteStr(value, length)
+        inode = inode .. bytesToStr(value, length)
     end
 
     appendInode(type + perms, 2)
@@ -407,7 +422,7 @@ local function createInode(data, type, perms, userId, groupId, index)
             local blockAddr, newBlockBitmap = nextAvailableBit(blockBitmap)
 
             blockBitmap = newBlockBitmap
-            directBlock = directBlock .. bytesToByteStr(blockAddr, 4)
+            directBlock = directBlock .. bytesToStr(blockAddr, 4)
 
             drive.writeSector((blockAddr + 1) * 2 - 1, data:sub((i + 11) * 1024 + 1, (i + 11) * 1024 + 512))
             drive.writeSector((blockAddr + 1) * 2, data:sub((i + 11) * 1024 + 513, (i + 12) * 1024))
@@ -433,8 +448,8 @@ local function createInode(data, type, perms, userId, groupId, index)
     appendInode(0x0, 1)
     appendInode(0x0, 1)
     appendInode(0x0, 2)
-    appendInode((userId & 0xFFFF0000) >> 16, 2)
-    appendInode((groupId & 0xFFFF0000) >> 16, 2)
+    appendInode((userId >> 16) & 0xFFFF, 2)
+    appendInode((groupId >> 16) & 0xFFFF, 2)
     appendInode(0x0, 4)
 
     if not index then
@@ -454,7 +469,7 @@ local function createInode(data, type, perms, userId, groupId, index)
         data = data:sub(1, (index - 1) % 4 * 128) .. inode .. data:sub(index % 4 * 128 + 1)
     end
 
-    drive.writeSector(10 + math.ceil(index / 4), data)
+    drive.writeSector(10 + startSector + math.ceil(index / 4), data)
 
     return index
 end
@@ -470,7 +485,7 @@ local function strToBytes(str)
 end
 
 local function appendInodeEntry(inode, entry)
-    local dataBlock = strToBytes(drive.readSector(10 + math.ceil(inode / 4)):sub((inode - 1) % 4 * 128 + 41, (inode - 1) % 4 * 128 + 44))
+    local dataBlock = strToBytes(drive.readSector(10 + startSector + math.ceil(inode / 4)):sub((inode - 1) % 4 * 128 + 41, (inode - 1) % 4 * 128 + 44))
     local data = drive.readSector((dataBlock + 1) * 2 - 1) .. drive.readSector((dataBlock + 1) * 2)
     local offset = 0
 
@@ -484,9 +499,11 @@ local function appendInodeEntry(inode, entry)
 
         if offset + strToBytes(data:sub(5 + offset, 6 + offset)) == 1024 then
             local entryLength = 8 + strToBytes(data:sub(7 + offset, 7 + offset))
-            entryLength = entryLength + 4 - entryLength % 4
+            if entryLength % 4 ~= 0 then
+                entryLength = entryLength + 4 - entryLength % 4
+            end
 
-            data = data:sub(1, 4 + offset) .. bytesToByteStr(entryLength, 2) .. data:sub(7 + offset)
+            data = data:sub(1, 4 + offset) .. bytesToStr(entryLength, 2) .. data:sub(7 + offset)
             offset = offset + entryLength
             data = data:sub(1, offset) .. entry
 
@@ -499,19 +516,19 @@ local function appendInodeEntry(inode, entry)
 end
 
 local function changeInodeField(index, startPos, endPos, data)
-    local inode = drive.readSector(10 + math.ceil(index / 4))
+    local inode = drive.readSector(10 + startSector + math.ceil(index / 4))
 
     if type(data) == "string" then
         inode = inode:sub(1, startPos - 1) .. data .. inode:sub(endPos + 1)
     else
-        inode = inode:sub(1, startPos - 1) .. bytesToByteStr(data, endPos - startPos + 1) .. inode:sub(endPos + 1)
+        inode = inode:sub(1, startPos - 1) .. bytesToStr(data, endPos - startPos + 1) .. inode:sub(endPos + 1)
     end
 
-    drive.writeSector(10 + math.ceil(index / 4), inode)
+    drive.writeSector(10 + startSector + math.ceil(index / 4), inode)
 end
 
 local function findParentAddr(path)
-    local currentPath, currentInode, entryOffset = "", 2, strToBytes(drive.readSector(11):sub(169, 172))
+    local currentPath, currentInode, entryOffset = "", 2, strToBytes(drive.readSector(11 + startSector):sub(169, 172))
 
     for entry in path:gmatch("/?([^/\x00]+)/?") do
         local currentEntry, offset = drive.readSector((entryOffset + 1) * 2 - 1), 0
@@ -528,7 +545,7 @@ local function findParentAddr(path)
 
             if filename == entry then
                 currentPath = currentPath .. filename .. "/"
-                entryOffset = strToBytes(drive.readSector(10 + math.ceil(nextInode / 4)):sub((nextInode - 1) % 4 * 128 + 41, (nextInode - 1) % 4 * 128 + 44))
+                entryOffset = strToBytes(drive.readSector(10 + startSector + math.ceil(nextInode / 4)):sub((nextInode - 1) % 4 * 128 + 41, (nextInode - 1) % 4 * 128 + 44))
 
                 break
             end
@@ -541,7 +558,7 @@ local function findParentAddr(path)
 end
 
 local function getAllEntriesSize(inode)
-    local dataBlock = strToBytes(drive.readSector(10 + math.ceil(inode / 4)):sub((inode - 1) % 4 * 128 + 41, (inode - 1) % 4 * 128 + 44))
+    local dataBlock = strToBytes(drive.readSector(10 + startSector + math.ceil(inode / 4)):sub((inode - 1) % 4 * 128 + 41, (inode - 1) % 4 * 128 + 44))
     local data = drive.readSector((dataBlock + 1) * 2 - 1) .. drive.readSector((dataBlock + 1) * 2)
     local offset = 0
 
@@ -562,7 +579,7 @@ local function createDirEntry(name, data, ...)
         if type(value) == "string" then
             dirEntry = dirEntry .. value
         else
-            dirEntry = dirEntry .. bytesToByteStr(value, length)
+            dirEntry = dirEntry .. bytesToStr(value, length)
         end
     end
 
@@ -586,9 +603,9 @@ local function createDirEntry(name, data, ...)
     appendDirEntry(filename, #filename)
 
     appendInodeEntry(parent, dirEntry)
-    changeInodeField(parent, (parent - 1) % 4 * 128 + 27, (parent - 1) % 4 * 128 + 28, strToBytes(drive.readSector(10 + math.ceil(parent / 4)):sub((parent - 1) % 4 * 128 + 27, (parent - 1) % 4 * 128 + 28)) + 1)
-    appendInodeEntry(newInode, bytesToByteStr(newInode, 4) .. "\x0C\x00\x01\x02.\x00\x00\x00")
-    appendInodeEntry(newInode, bytesToByteStr(parent, 4) .. "\xF4\x03\x02\x02..\x00\x00")
+    changeInodeField(parent, (parent - 1) % 4 * 128 + 27, (parent - 1) % 4 * 128 + 28, strToBytes(drive.readSector(10 + startSector + math.ceil(parent / 4)):sub((parent - 1) % 4 * 128 + 27, (parent - 1) % 4 * 128 + 28)) + 1)
+    appendInodeEntry(newInode, bytesToStr(newInode, 4) .. "\x0C\x00\x01\x02.\x00\x00\x00")
+    appendInodeEntry(newInode, bytesToStr(parent, 4) .. "\xF4\x03\x02\x02..\x00\x00")
 end
 
 createInode("", 0x4000, 0x1ED, 0, 0, 2) -- root inode
@@ -669,30 +686,34 @@ for file in fileData:gmatch('"path":"([^%.][%w/%. _%-]-)"[^t]-"type":"blob"') do
 end
 
 local freeBlocks = capacity / blockSize - 1
-for i = 1, capacity / blockSize / 8 do
-    local j = 1
-
-    for k = 0, 7 do
-        if blockBitmap:sub(i, i):byte() & (j << k) == j << k then
+for i = 1, math.ceil(capacity / blockSize / 8) do
+    for j = 0, 7 do
+        if blockBitmap:sub(i, i):byte() & (1 << j) == 1 << j then
             freeBlocks = freeBlocks - 1
         end
     end
 end
+
+if capacity / blockSize % 8 ~= 0 then
+    freeBlocks = freeblocks + (8 - capacity / blockSize % 8)
+end
 freeBlocks = freeBlocks + 1
 
-superblock = superblock:sub(1, 12) .. bytesToByteStr(freeBlocks, 4) .. bytesToByteStr(totalInodes - numInodes - 10, 4) .. superblock:sub(21)
-GDT = GDT:sub(1, 12) .. bytesToByteStr(freeBlocks, 2) .. bytesToByteStr(totalInodes - numInodes - 10, 2) .. bytesToByteStr(numDirs, 2)
+superblock = superblock:sub(1, 12) .. bytesToStr(freeBlocks, 4) .. bytesToStr(totalInodes - numInodes - 10, 4) .. superblock:sub(21)
+GDT = GDT:sub(1, 12) .. bytesToStr(freeBlocks, 2) .. bytesToStr(totalInodes - numInodes - 10, 2) .. bytesToStr(numDirs, 2)
 
-superblock = superblock:sub(1, 48) .. bytesToByteStr(math.floor(os.time()), 4) .. superblock:sub(53)
+superblock = superblock:sub(1, 48) .. bytesToStr(math.floor(os.time()), 4) .. superblock:sub(53)
 
 status("Writing metadata")
 drive.writeSector(1, MBR)
-drive.writeSector(3, superblock)
-drive.writeSector(5, GDT)
-drive.writeSector(7, blockBitmap:sub(1, 512))
-drive.writeSector(8, blockBitmap:sub(513, 1024))
-drive.writeSector(9, inodeBitmap:sub(1, 512))
-drive.writeSector(10, inodeBitmap:sub(513, 1024))
+drive.writeSector(2, MBRext:sub(1, 512))
+drive.writeSector(3, MBRext:sub(513, 1024))
+drive.writeSector(3 + startSector, superblock)
+drive.writeSector(5 + startSector, GDT)
+drive.writeSector(7 + startSector, blockBitmap:sub(1, 512))
+drive.writeSector(8 + startSector, blockBitmap:sub(513, 1024))
+drive.writeSector(9 + startSector, inodeBitmap:sub(1, 512))
+drive.writeSector(10 + startSector, inodeBitmap:sub(513, 1024))
 status("Wrote metadata", 0)
 
 status("Rebooting...")
