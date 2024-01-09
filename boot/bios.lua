@@ -21,12 +21,11 @@ end
 for drive in component.list("drive", true) do
     bootByteInsig, bootByteSig = string.byte(component.invoke(drive, "readSector", 1), 511, 512)
     if bootByteSig == 0xAA and bootByteInsig == 0x55 then
-        bootDrive = component.proxy(drive)
+        bootDrive = drive
         break
     end
 end
 
-local cursorY = 1
 if not bootDrive then
     if cursorY > resY then
         cursorY = resY
@@ -47,9 +46,10 @@ if not bootDrive then
 end
 
 component.invoke(component.list("eeprom")(), "setData", bootDrive)
+bootDrive = component.proxy(bootDrive)
 
 ::boot::
-local result, err = load(bootDrive.readSector(1):sub(1, 200):match("(.+)\x00+"), "=MBR", "t", _ENV)
+local result, err = load(bootDrive.readSector(1):sub(1, 200):match("(.+)\x00+"), "=MBR", "t")
 
 if result then
     return result()
