@@ -10,7 +10,7 @@ local function format(drive)
     end
 end
 
-local function bytesToStr(bytes)
+local function formatBytes(bytes)
     local levels, index = { "B", "KiB", "MiB" }, 1
 
     while bytes / 1024 >= 1 do
@@ -22,7 +22,7 @@ local function bytesToStr(bytes)
 end
 
 local function fsToStr(fs)
-    return fs.label .. " - " .. bytesToStr(fs.spaceTotal)
+    return fs.label .. " - " .. formatBytes(fs.spaceTotal)
 end
 
 local function outputOption(fs, inverted, cursorY)
@@ -180,7 +180,7 @@ MBR = MBR .. bytesToStr(0x0, 3) -- CHS is irrelevant
 MBR = MBR .. bytesToStr(0x83, 1) -- partition type linux fs
 MBR = MBR .. bytesToStr(0x0, 3) -- CHS is irrelevant
 MBR = MBR .. bytesToStr(startSector, 4) -- first absolute sector
-MBR = MBR .. bytesToStr(capacity / 512 - startSector) -- number of sectors
+MBR = MBR .. bytesToStr(capacity / 512, 4) -- number of sectors
 
 -- empty partitions
 for i = 1, 6 do
@@ -207,7 +207,9 @@ end
 
 local blockSize, fragmentSize, bytesPerInode = 1024, 1024, 2048 -- block fragmentation not implemented
 local totalInodes, reservedBlocks = math.floor(capacity / bytesPerInode), math.floor(capacity / blockSize * 0.05)
-totalInodes = totalInodes + totalInodes % 4
+if totalInodes % 4 ~= 0 then
+    totalInodes = totalInodes + 4 - totalInodes % 4
+end
 
 -- main fields
 appendSuperblock(totalInodes, 4) -- total number of inodes in the system
@@ -459,7 +461,7 @@ local function createInode(data, type, perms, userId, groupId, index)
         inodeBitmap = newInodeBitmap
     end
 
-    local data = drive.readSector(10 + math.ceil(index / 4))
+    local data = drive.readSector(10 + startSector + math.ceil(index / 4))
 
     if index - 1 % 4 == 0 then
         data = inode .. data:sub(129)
@@ -668,21 +670,17 @@ for file in fileData:gmatch('"path":"([^%.][%w/%. _%-]-)"[^t]-"type":"blob"') do
 
     handle.close()
 
-    if data == "" then
-        status("Could not read file data", 1)
-    else
-        if file == "boot/bios.lua" then
-            status("Flashing BIOS")
-            eeprom.set(data)
-            status("Flashed BIOS", 0)
-        end
-    
-        status("Creating file")
-        createDirEntry(file, data, 0x8000, 0x1ED, 0, 0)
-        status("Created file", 0)
-
-        numInodes = numInodes + 1
+    if file == "boot/bios.lua" then
+        status("Flashing BIOS")
+        eeprom.set(data)
+        status("Flashed BIOS", 0)
     end
+
+    status("Creating file")
+    createDirEntry(file, data, 0x8000, 0x1ED, 0, 0)
+    status("Created file", 0)
+
+    numInodes = numInodes + 1
 end
 
 local freeBlocks = capacity / blockSize - 1
@@ -695,7 +693,7 @@ for i = 1, math.ceil(capacity / blockSize / 8) do
 end
 
 if capacity / blockSize % 8 ~= 0 then
-    freeBlocks = freeblocks + (8 - capacity / blockSize % 8)
+    freeBlocks = freeBlocks + (8 - capacity / blockSize % 8)
 end
 freeBlocks = freeBlocks + 1
 
