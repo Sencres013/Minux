@@ -11,9 +11,7 @@ while not gpu.bind(component.list("screen")(), true) do
     computer.pullSignal(0)
 end
 
-local eeprom = component.proxy(component.list("eeprom")())
-
-local bootDrive = eeprom.getData() or ""
+local bootDrive = component.invoke(component.list("eeprom")(), "getData") or ""
 local bootByteInsig, bootByteSig = string.byte(component.invoke(bootDrive, "readSector", 1) or "", 511, 512)
 if bootByteSig == 0xAA and bootByteInsig == 0x55 then
     goto boot
@@ -48,10 +46,10 @@ if not bootDrive then
 end
 
 ::boot::
-eeprom.setData(bootDrive)
+component.invoke(component.list("eeprom")(), "setData", bootDrive)
 bootDrive = component.proxy(bootDrive)
 
-local result, err = load(bootDrive.readSector(1):sub(1, 200):match("(.+)\x00+"), "=MBR", "t")
+local result, err = load((bootDrive.readSector(1):sub(1, 218) .. bootDrive.readSector(1):sub(225, 440)):match("[%g ]+"), "=MBR", "t")
 
 if result then
     return result()
@@ -62,7 +60,7 @@ else
         gpu.fill(1, resY, resX, 1, " ")
     end
 
-    gpu.set(1, cursorY, "Operating System not found")
+    gpu.set(1, cursorY, "Operating System not found: " .. err)
     
     while true do
         computer.pullSignal()
