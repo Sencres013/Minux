@@ -172,7 +172,7 @@ for 1, 1024 - #VBR do
     VBR = VBR .. "\x00"
 end
 
-MBR = VBR:sub(1, 218) .. VBR:sub(225, 440)
+MBR = VBR:sub(1, 218) .. "\x00\x00\x00\x00\x00\x00" .. VBR:sub(225, 440) .. "\x00\x00\x00\x00\x00\x00"
 
 local startSector = 0
 local capacity = drive.getCapacity() - startSector * 512
@@ -706,7 +706,7 @@ superblock = superblock:sub(1, 48) .. bytesToStr(math.floor(os.time()), 4) .. su
 
 status("Writing metadata")
 drive.writeSector(1, MBR)
-drive.writeSector(2, VBR:sub(513))
+drive.writeSector(2, VBR:sub(513, 1024))
 drive.writeSector(3 + startSector, superblock)
 drive.writeSector(5 + startSector, GDT)
 drive.writeSector(7 + startSector, blockBitmap:sub(1, 512))
