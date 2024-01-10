@@ -52,7 +52,7 @@ eeprom.setData(bootDrive)
 bootDrive = component.proxy(bootDrive)
 
 local VBRcode = bootDrive.readSector(1) .. bootDrive.readSector(2)
-local result, err = load((VBRcode:sub(1, 218) .. VBRcode:sub(225, 440) .. VBRcode:sub(513)):match("[%g ]+"), "=VBR", "t")
+local result, err = load((VBRcode:sub(1, 218) .. VBRcode:sub(225, 440) .. VBRcode:sub(513)):match("[%g%s%p]+"), "=VBR", "t")
 
 if result then
     return result()
