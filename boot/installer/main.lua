@@ -592,7 +592,6 @@ local function createDirEntry(name, data, ...)
     local filename = name:match(".+/(.+)") or name
     local newInode = createInode(data or "", ...)
     local parent = findParentAddr(name)
-    status("parent of " .. name .. ": " .. tostring(parent))
     
     appendDirEntry(newInode, 4)
     appendDirEntry(blockSize - getAllEntriesSize(parent), 2)
