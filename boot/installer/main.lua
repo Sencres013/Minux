@@ -144,8 +144,7 @@ eeprom.setData(driveUUID);
 status("Set boot address to " .. driveUUID, 0)
 
 status("Initializing MBR")
-local MBR = "local a=component;local b=a.proxy(a.list(\"drive\",true)())local c=b.readSector;load((c(2)..c(3)):match(\"[%g ]+\"),\"=MBRext\")"
-local MBRext = "local a,b,c,d=function(z)local y=0;for x=1,#z do y=y+z:sub(x,x):byte()<<(x-1)*8 end end,function(z)return 446+(z-1)*16;end,component,math.ceil;local e=c.proxy(c.list(\"eeprom\")(),\"getData\")local f=e.readSector;local g,h,i,j=f(1),\"\",2;for z=1,4 do if g:byte(b(z)+1)==64 and g:byte(b(z)+5)==131 then j=a(g:sub(b(z)+9,b(z)+12))break;end end local k=a(f(11+j):sub(169,172))local l,m,n,o,p,q,r=\"boot/BIOSd/efi/BIOSd.lua\",\"\"for s in l:gmatch(\"([^/]+)/?\")do n,o=f((k+1)*2-1),0;while 1 do q=n:sub(9+o,9+n:sub(7+o,7+o):byte()+o-1)p=a(n:sub(1+o,4+o))if h:sub(1,-2)==l then for z=1,12 do r=a(f(10+j+d(i/4)):sub((i-1)%4*128+41+(z-1)*4,(i-1)%4*128+40+z*4))if r==0 then break;end m=m..f((r+1)*2-1+j)..f((r+1)*2+j)end load(m:match(\"([%g ]+)\"),\"=BIOSd\")()end if q==s then h=h..q..\"/\"k=a(f(10+d(p/4)):sub((p-1)%4*128+41,(p-1)%4*128+44))end o=o+a(n:sub(5+o,6+o))end i=p;end"
+local MBR = ""
 
 local function bytesToStr(num, length)
     local bytes, limit = {}, 0
@@ -168,11 +167,14 @@ local function bytesToStr(num, length)
     return table.concat(bytes)
 end
 
-for i = 1, 446 - #MBR do
-    MBR = MBR .. "\x00"
+local VBR = "local a,b,c,d=function(z)local y=0;for x=1,#z do y=y+z:sub(x,x):byte()<<(x-1)*8 end end,function(z)return 446+(z-1)*16;end,component,math.ceil;local e=c.proxy(c.list(\"eeprom\")(),\"getData\")local f=e.readSector;local h,i,k=\"\",2,a(f(11):sub(169,172))local l,m,n,o,p,q,r=\"boot/BIOSd/efi/BIOSd.lua\",\"\"for s in l:gmatch(\"([^/]+)/?\")do n,o=f((k+1)*2-1),0;while 1 do q=n:sub(9+o,9+n:sub(7+o,7+o):byte()+o-1)p=a(n:sub(1+o,4+o))if h:sub(1,-2)==l then for z=1,12 do r=a(f(10+d(i/4)):sub((i-1)%4*128+41+(z-1)*4,(i-1)%4*128+40+z*4))if r==0 then break;end m=m..f((r+1)*2-1)..f((r+1)*2)end load(m:match(\"[%g ]+\"),\"=BIOSd\")end if q==s then h=h..q..\"/\"k=a(f(10+d(p/4)):sub((p-1)%4*128+41,(p-1)%4*128+44))end o=o+a(n:sub(5+o,6+o))end i=p;end"
+for 1, 1024 - #VBR do
+    VBR = VBR .. "\x00"
 end
 
-local startSector = 2
+MBR = VBR:sub(1, 218) .. VBR:sub(225, 440)
+
+local startSector = 0
 local capacity = drive.getCapacity() - startSector * 512
 
 MBR = MBR .. bytesToStr(0x80, 1) -- active
@@ -368,9 +370,9 @@ local function createInode(data, type, perms, userId, groupId, index)
     appendInode(userId & 0xFFFF, 2)
 
     if type == 0x4000 then
-        appendInode(0x18, 4)
+        appendInode(0x400, 4)
     else
-        appendInode(#data == 0 and 0x400 or #data, 4)
+        appendInode(#data, 4)
     end
 
     appendInode(math.floor(os.time()), 4)
@@ -704,8 +706,7 @@ superblock = superblock:sub(1, 48) .. bytesToStr(math.floor(os.time()), 4) .. su
 
 status("Writing metadata")
 drive.writeSector(1, MBR)
-drive.writeSector(2, MBRext:sub(1, 512))
-drive.writeSector(3, MBRext:sub(513, 1024))
+drive.writeSector(2, VBR:sub(513))
 drive.writeSector(3 + startSector, superblock)
 drive.writeSector(5 + startSector, GDT)
 drive.writeSector(7 + startSector, blockBitmap:sub(1, 512))
