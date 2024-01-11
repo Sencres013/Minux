@@ -193,7 +193,7 @@ while true do
                     cursorX = 1
                     cursorY = 1
 
-                    for line in dataLines do
+                    for _,line in ipairs(dataLines) do
                         gpu.set(1, cursorY, line)
                         cursorY = cursorY + 1
                     end
