@@ -239,7 +239,7 @@ appendSuperblock(0x1, 4) -- major portion of version
 appendSuperblock(0x0, 2) -- user id that can use reserved blocks
 appendSuperblock(0x0, 2) -- group id that can use reserved blocks
 
-local function UUIDStrToByteStr(uuid)
+local function UUIDStrToStr(uuid)
     local justBytes = ""
     for i = 1, #uuid do
         justBytes = justBytes .. (uuid:sub(i, i) ~= "-" and uuid:sub(i, i) or "")
@@ -260,7 +260,7 @@ appendSuperblock(0x0, 2) -- block group the superblock is part of (if backup cop
 appendSuperblock(0x0, 4) -- optional features, subject to change
 appendSuperblock(0x2, 4) -- required features, subject to change
 appendSuperblock(0x1, 4) -- features that if not supported, volume must be mounted in read only mode, subject to change
-appendSuperblock(UUIDStrToByteStr(driveUUID), 16) -- file system id
+appendSuperblock(UUIDStrToStr(driveUUID), 16) -- file system id
 appendSuperblock("label", 16) -- volume name
 appendSuperblock(0x0, 64) -- path volume was last mounted to
 appendSuperblock(0x0, 4) -- compression algorithms used, if any
