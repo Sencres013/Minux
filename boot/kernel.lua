@@ -220,11 +220,14 @@ while true do
                 inEditor = false
             end
         elseif result[3] >= 32 and result[3] <= 126 then
+            ocelot.log("printable character pressed")
             if not inEditor then
                 gpu.set(cursorX, 1, string.char(result[3]))
                 cursorX = cursorX + 1
 
                 buffer = buffer .. string.char(result[3])
+
+                ocelot.log("character added to buffer, current buffer: " .. buffer)
             else
                 cursorX = cursorX + 1
             end
