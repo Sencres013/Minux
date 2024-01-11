@@ -9,7 +9,7 @@ local function strToBytes(str)
     return bytes
 end
 
-local drive = component.proxy(component.invoke(component.list("eeprom"), "getData"))
+local drive = component.proxy(component.invoke(component.list("eeprom")(), "getData"))
 
 local currentPath, currentInode, entryOffset = "", 2, strToBytes(drive.readSector(11):sub(169, 172))
 local path = "boot/kernel.lua"
