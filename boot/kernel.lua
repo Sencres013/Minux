@@ -202,7 +202,7 @@ while true do
 
                     gpu.setBackground(0xFFFFFF)
                     gpu.setForeground(0x000000)
-                    gpu.set(1, 1, gpu.get(1, 1))
+                    gpu.set(1, 1, gpu.get(1, 1), false)
 
                     inEditor = true
                 end
@@ -237,7 +237,7 @@ while true do
             ocelot.log("arrow pressed")
             gpu.setBackground(0x000000)
             gpu.setForeground(0xFFFFFF)
-            gpu.set(cursorX, cursorY, gpu.get(cursorX, cursorY))
+            gpu.set(cursorX, cursorY, gpu.get(cursorX, cursorY), false)
 
             if result[4] == 203 then -- left arrow
                 cursorX = cursorX - 1
@@ -251,7 +251,7 @@ while true do
 
             gpu.setBackground(0xFFFFFF)
             gpu.setForeground(0x000000)
-            gpu.set(cursorX, cursorY, gpu.get(cursorX, cursorY))
+            gpu.set(cursorX, cursorY, gpu.get(cursorX, cursorY), false)
         end
     end
 end
