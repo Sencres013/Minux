@@ -9,6 +9,8 @@
 
 -- local environment = {}
 
+local ocelot = component.proxy(component.list("ocelot")())
+
 local function strToBytes(str)
     local bytes = 0
 
@@ -173,9 +175,13 @@ while true do
     local dataLines = {}
     
     if result[1] == "key_down" then
+        ocelot.log("key down")
         if result[4] == 28 then
+            ocelot.log("enter pressed")
             if not inEditor then
+                ocelot.log("buffer: " .. buffer)
                 data, inode = readData(buffer)
+                ocelot.log("data: " .. (buffer or "") .. " | inode: " .. tostring(inode))
 
                 if data ~= "" then
                     for line in data:gmatch("([^\n]+)\n?") do
@@ -204,6 +210,7 @@ while true do
                 buffer = ""
             end
         elseif result[4] == 1 then
+            ocelot.log("escape pressed")
             if inEditor then
                 writeData(inode, data)
 
@@ -224,6 +231,7 @@ while true do
         end
 
         if inEditor and result[4] == 200 or result[4] == 203 or result[4] == 205 or result[4] == 208 then
+            ocelot.log("arrow pressed")
             gpu.setBackground(0x000000)
             gpu.setForeground(0xFFFFFF)
             gpu.set(cursorX, cursorY, gpu.get(cursorX, cursorY))
