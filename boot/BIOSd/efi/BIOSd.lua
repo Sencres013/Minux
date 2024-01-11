@@ -39,7 +39,7 @@ for entry in path:gmatch("[^/]+") do
                 end
 
                 dataBlock = strToBytes(drive.readSector(10 + math.ceil(nextInode / 4)):sub((nextInode - 1) % 4 * 207, (nextInode - 1) % 4 * 210))
-                if dataBlock != 0 then
+                if dataBlock ~= 0 then
                     local indirectBlock, offset = drive.readSector((dataBlock + 1) * 2 - 1) .. drive.readSector((dataBlock + 1) * 2), 0
 
                     while true do end
