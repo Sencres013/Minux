@@ -615,7 +615,8 @@ createDirEntry("lost+found", nil, 0x4000, 0x1C0, 0, 0)
 local numInodes = 1
 
 status("Fetching file list")
-local handle = internet.request("https://api.github.com/repos/Sencres013/Minux/git/trees/master?recursive=1")
+math.randomseed(os.time())
+local handle = internet.request("https://api.github.com/repos/Sencres013/Minux/git/trees/master?recursive=1&random=" .. tostring(math.random(1, 1000000)))
 local fileData, chunk = ""
 
 repeat
@@ -651,7 +652,8 @@ end
 
 for file in fileData:gmatch('"path":"([^%.][%w/%. _%-]-)"[^t]-"type":"blob"') do
     status("Fetching file " .. file)
-    local handle = internet.request(repo .. file)
+    math.randomseed(os.time())
+    local handle = internet.request(repo .. file .. "?random=" .. tostring(math.random(1, 1000000)))
     local data, chunk = ""
 
     repeat

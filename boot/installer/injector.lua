@@ -84,7 +84,8 @@ function sleep(seconds)
 end
 
 status("Fetching main chunk")
-local handle = internet.request("https://raw.githubusercontent.com/Sencres013/Minux/master/boot/installer/main.lua")
+math.randomseed(os.time())
+local handle = internet.request("https://raw.githubusercontent.com/Sencres013/Minux/master/boot/installer/main.lua?random=" .. tostring(math.random(1, 1000000)))
 local data, chunk = ""
 
 local connected
