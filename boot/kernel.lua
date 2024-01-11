@@ -168,11 +168,12 @@ local inEditor = false
 local gpu = component.proxy(component.list("gpu")())
 local resX, resY = gpu.getResolution()
 local cursorX, cursorY = 1, 1
-local result = table.pack(computer.pullSignal())
 local data, buffer, inode = "", ""
 local dataLines = {}
 
 while true do
+    local result = table.pack(computer.pullSignal())
+
     if result[1] == "key_down" then
         ocelot.log("key down")
         if result[4] == 28 then
