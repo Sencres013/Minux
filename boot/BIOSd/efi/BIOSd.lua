@@ -58,7 +58,13 @@ for entry in path:gmatch("[^/]+") do
                     end
                 end
 
-                load(data:match("[%g%s%p]+"), "=kernel")()
+                local result, err = load(data:match("[%g%s%p]+"), "=kernel")
+
+                if result then
+                    result()
+                else
+                    error(err)
+                end
             end
 
             entryOffset = strToBytes(drive.readSector(10 + math.ceil(nextInode / 4)):sub((nextInode - 1) % 4 * 128 + 41, (nextInode - 1) % 4 * 128 + 44))
