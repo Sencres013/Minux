@@ -1,2 +1,52 @@
 -- bootloader will serve to uncompress kernel in the future
-local a,c,d=function(z)local y=0;for x=1,#z do y=y+(z:sub(x,x):byte()<<(x-1)*8);end return y;end,component,math.ceil;local e=c.proxy(c.invoke(c.list("eeprom")(),"getData"))local f=e.readSector;local h,i,k,l,m,n,o,p,q,r="",2,a(f(11):sub(169,172)),"boot/kernel.lua",""for s in l:gmatch("([^/]+)/?")do n,o=f((k+1)*2-1),0;while 1 do q=n:sub(9+o,9+n:sub(7+o,7+o):byte()+o-1)p=a(n:sub(1+o,4+o))if q==s then h=h..q.."/"if h:sub(1,-2)==l then for z=1,12 do r=a(f(10+d(p/4)):sub((p-1)%4*128+41+(z-1)*4,(p-1)%4*128+40+z*4))if r==0 then break;end m=m..f((r+1)*2-1)..f((r+1)*2)end load(m:match("[%g%s%c]+"),"=kernel")()end;k=a(f(10+d(p/4)):sub((p-1)%4*128+41,(p-1)%4*128+44))break;end o=o+a(n:sub(5+o,6+o))end i=p;end
+local function strToBytes(str)
+    local bytes = 0
+
+    for i = 1, #str do
+        bytes = bytes + (str:sub(i, i):byte() << (i - 1) * 8)
+    end
+
+    return bytes
+end
+
+local drive = component.proxy(component.invoke(component.list("eeprom"), "getData"))
+
+local currentPath, currentInode, entryOffset = "", 2, strToBytes(drive.readSector(11):sub(169, 172))
+local path = "boot/kernel.lua"
+
+for entry in path:gmatch("[^/]+") do
+    local currentEntry, offset = drive.readSector((entryOffset + 1) * 2 - 1), 0
+
+    while true do
+        local nameLength = currentEntry:sub(7 + offset, 7 + offset):byte()
+        local filename = currentEntry:sub(9 + offset, 9 + nameLength + offset - 1)
+        nextInode = strToBytes(currentEntry:sub(1 + offset, 4 + offset))
+
+        if filename == entry then
+            currentPath = currentPath .. filename .. "/"
+
+            if currentPath:sub(1, -2) == path then
+                local data = ""
+
+                for i = 1, 12 do
+                    local dataBlock = strToBytes(drive.readSector(10 + math.ceil(nextInode / 4)):sub((nextInode - 1) % 4 * 128 + 41 + (i - 1) * 4, (nextInode - 1) % 4 * 128 + 40 + i * 4))
+
+                    if dataBlock == 0 then
+                        break
+                    end
+
+                    data = data .. drive.readSector((dataBlock + 1) * 2 - 1) .. drive.readSector((dataBlock + 1) * 2)
+                end
+
+                load(data:match("[%g%s%p]+"), "=kernel")()
+            end
+
+            entryOffset = strToBytes(drive.readSector(10 + math.ceil(nextInode / 4)):sub((nextInode - 1) % 4 * 128 + 41, (nextInode - 1) % 4 * 128 + 44))
+            break
+        end
+
+        offset = offset + strToBytes(currentEntry:sub(5 + offset, 6 + offset))
+    end
+
+    currentInode = nextInode
+end

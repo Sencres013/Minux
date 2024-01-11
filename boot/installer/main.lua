@@ -167,7 +167,7 @@ local function bytesToStr(num, length)
     return table.concat(bytes)
 end
 
-local VBR = "local a,c,d=function(z)local y=0;for x=1,#z do y=y+(z:sub(x,x):byte()<<(x-1)*8);end return y;end,component,math.ceil;local e=c.proxy(c.invoke(c.list(\"eeprom\")(),\"getData\"))local f=e.readSector;local h,i,k,l,m,n,o,p,q,r=\"\",2,a(f(11):sub(169,172)),\"boot/BIOSd/efi/BIOSd.lua\",\"\"for s in l:gmatch(\"([^/]+)/?\")do n,o=f((k+1)*2-1),0;while 1 do q=n:sub(9+o,9+n:sub(7+o,7+o):byte()+o-1)p=a(n:sub(1+o,4+o))if q==s then h=h..q..\"/\"if h:sub(1,-2)==l then for z=1,12 do r=a(f(10+d(p/4)):sub((p-1)%4*128+41+(z-1)*4,(p-1)%4*128+40+z*4))if r==0 then break;end m=m..f((r+1)*2-1)..f((r+1)*2)end load(m:match(\"[%g%s%c]+\"),\"=BIOSd\")()end;k=a(f(10+d(p/4)):sub((p-1)%4*128+41,(p-1)%4*128+44))break;end o=o+a(n:sub(5+o,6+o))end i=p;end"
+local VBR = "local a,c,d=function(z)local y=0;for x=1,#z do y=y+(z:sub(x,x):byte()<<(x-1)*8);end return y;end,component,math.ceil;local e=c.proxy(c.invoke(c.list(\"eeprom\")(),\"getData\"))local f=e.readSector;local h,i,k,l,m,n,o,p,q,r=\"\",2,a(f(11):sub(169,172)),\"boot/BIOSd/efi/BIOSd.lua\",\"\"for s in l:gmatch(\"[^/]+\")do n,o=f((k+1)*2-1),0;while 1 do q=n:sub(9+o,9+n:sub(7+o,7+o):byte()+o-1)p=a(n:sub(1+o,4+o))if q==s then h=h..q..\"/\"if h:sub(1,-2)==l then for z=1,12 do r=a(f(10+d(p/4)):sub((p-1)%4*128+41+(z-1)*4,(p-1)%4*128+40+z*4))if r==0 then break;end m=m..f((r+1)*2-1)..f((r+1)*2)end load(m:match(\"[%g%s%p]+\"),\"=BIOSd\")()end;k=a(f(10+d(p/4)):sub((p-1)%4*128+41,(p-1)%4*128+44))break;end o=o+a(n:sub(5+o,6+o))end i=p;end"
 for i = 1, 946 - #VBR do
     VBR = VBR .. "\x00"
 end
