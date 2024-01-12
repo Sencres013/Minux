@@ -141,7 +141,7 @@ local function writeData(inode, data)
             end
         else
             if i <= numBlocks then
-                local blockAddr = inodeData:sub(41 + (i - 1) * 4, 40 + i * 4)
+                local blockAddr = strToBytes(inodeData:sub(41 + (i - 1) * 4, 40 + i * 4))
 
                 drive.writeSector((blockAddr + 1) * 2 - 1, data:sub((i - 1) * 1024 + 1, (i - 1) * 1024 + 512))
                 drive.writeSector((blockAddr + 1) * 2, data:sub((i - 1) * 1024 + 513, i * 1024))
@@ -164,27 +164,24 @@ local function writeData(inode, data)
     drive.writeSector(10 + math.ceil(inode / 4), inodeSector)
 end
 
-local inEditor = false
 local gpu = component.proxy(component.list("gpu")())
 local resX, resY = gpu.getResolution()
 local cursorX, cursorY = 1, 1
-local data, buffer, inode = "", ""
+
+local inEditor = false
+local buffer, data, inode = ""
 local dataLines = {}
 
 while true do
     local result = table.pack(computer.pullSignal())
 
     if result[1] == "key_down" then
-        ocelot.log("key down")
         if result[4] == 28 then
-            ocelot.log("enter pressed")
             if not inEditor then
-                ocelot.log("buffer: " .. buffer)
                 data, inode = readData(buffer)
-                ocelot.log("data: " .. (buffer or "") .. " | inode: " .. tostring(inode))
 
                 if data ~= "" then
-                    for line in data:gmatch("([^\n]+)\n?") do
+                    for line in data:gmatch("[^\n]+") do
                         table.insert(dataLines, line)
                     end
 
@@ -210,31 +207,30 @@ while true do
                 buffer = ""
             end
         elseif result[4] == 1 then
-            ocelot.log("escape pressed")
             if inEditor then
+                data = table.concat(dataLines, "\n")
+
                 writeData(inode, data)
 
                 gpu.setBackground(0x000000)
                 gpu.fill(1, 1, resX, resY, " ")
 
+                buffer = ""
+                dataLines = {}
                 inEditor = false
             end
         elseif result[3] >= 32 and result[3] <= 126 then
-            ocelot.log("printable character pressed")
             if not inEditor then
                 gpu.set(cursorX, 1, string.char(result[3]))
                 cursorX = cursorX + 1
 
                 buffer = buffer .. string.char(result[3])
-
-                ocelot.log("character added to buffer, current buffer: " .. buffer)
             else
                 cursorX = cursorX + 1
             end
         end
 
         if inEditor and result[4] == 200 or result[4] == 203 or result[4] == 205 or result[4] == 208 then
-            ocelot.log("arrow pressed")
             gpu.setBackground(0x000000)
             gpu.setForeground(0xFFFFFF)
             gpu.set(cursorX, cursorY, gpu.get(cursorX, cursorY), false)
